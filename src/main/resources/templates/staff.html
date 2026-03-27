@@ -1,0 +1,1875 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Panel - Fashion Shop</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" th:href="@{/css/admin.css}">
+    <link rel="stylesheet" th:href="@{/css/staff.css}">
+    <style>
+        /* Toast notification styles */
+        .toast-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 9999;
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+        }
+
+        .toast-notification.error {
+            background: #dc3545;
+        }
+
+        .toast-notification.warning {
+            background: #ffc107;
+            color: #000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        .toast-notification.hiding {
+            animation: slideOut 0.3s ease-out forwards;
+        }
+
+        .toast-icon {
+            font-size: 24px;
+        }
+
+        .toast-message {
+            flex: 1;
+            font-weight: 500;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+        <div class="logo">
+            <h2>Fashion Staff</h2>
+        </div>
+        <nav class="nav-menu">
+            <a href="#" class="nav-item active" data-section="dashboard">
+                <span class="icon">📊</span>
+                Staff Dashboard
+            </a>
+            <a href="#" class="nav-item" data-section="products">
+                <span class="icon">👕</span>
+                Products
+            </a>
+            <a href="#" class="nav-item" data-section="brands">
+                <span class="icon">🏷️</span>
+                Brands
+            </a>
+            <a href="#" class="nav-item" data-section="orders">
+                <span class="icon">📦</span>
+                Orders
+            </a>
+            <a href="#" class="nav-item" data-section="blogs">
+                <span class="icon">📝</span>
+                Blogs
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div class="header-title-section">
+                    <h1 id="pageTitle">Staff Dashboard</h1>
+                    <p class="header-subtitle" id="headerSubtitle">Manage products, brands & orders</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="user-profile">
+                    <div class="avatar" th:text="${currentUser?.fullName != null ? currentUser.fullName.substring(0, 1).toUpperCase() : 'S'}">S</div>
+                    <div class="user-info">
+                        <span class="user-name" th:text="${currentUser?.fullName ?: 'Staff'}">Staff</span>
+                        <span class="user-role" th:text="${currentUser?.role?.name ?: 'Staff'}">Staff</span>
+                    </div>
+                    <div class="profile-dropdown">
+                        <button class="dropdown-toggle">⋮</button>
+                        <div class="dropdown-menu">
+                            <a href="profile/view" class="dropdown-item">
+                                <i>👤</i> Profile
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <form th:action="@{/logout}" method="post" style="margin:0;">
+                                <button type="submit" class="dropdown-item logout-item">
+                                    <i class="bi bi-box-arrow-right"></i> Logout
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Flash Messages (Global) -->
+        <div th:if="${success}" class="toast-notification" style="position: fixed; top: 20px; right: 20px; z-index: 10000;">
+            <span class="toast-icon">✓</span>
+            <span class="toast-message" th:text="${success}"></span>
+        </div>
+        <div th:if="${error}" class="toast-notification error" style="position: fixed; top: 20px; right: 20px; z-index: 10000;">
+            <span class="toast-icon">✕</span>
+            <span class="toast-message" th:text="${error}"></span>
+        </div>
+
+        <!-- Staff Dashboard Section -->
+        <section id="dashboard" class="content-section active">
+            <!-- Key Metrics -->
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <div class="stat-icon" style="background: rgba(255,255,255,0.2);">👕</div>
+                    <div class="stat-info">
+                        <h3 style="color: rgba(255,255,255,0.9); font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">Total Products</h3>
+                        <p class="stat-value" id="staffTotalProducts" style="color: white; font-size: 2rem; font-weight: 700; margin: 0;" th:text="${#lists.size(products)}">0</p>
+                        <span style="color: rgba(255,255,255,0.8); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                            <span id="staffActiveProducts">0 active</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                    <div class="stat-icon" style="background: rgba(255,255,255,0.2);">📦</div>
+                    <div class="stat-info">
+                        <h3 style="color: rgba(255,255,255,0.9); font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">Total Orders</h3>
+                        <p class="stat-value" id="staffTotalOrders" style="color: white; font-size: 2rem; font-weight: 700; margin: 0;" th:text="${orders != null ? #lists.size(orders) : 0}">0</p>
+                        <span style="color: rgba(255,255,255,0.8); font-size: 0.75rem; margin-top: 0.25rem; display: block;">
+                            <span id="staffPendingOrders" style="margin-right: 0.5rem;">0 pending</span>
+                            <span id="staffCompletedOrders">0 completed</span>
+                        </span>
+                    </div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white;">
+                    <div class="stat-icon" style="background: rgba(255,255,255,0.2);">🏷️</div>
+                    <div class="stat-info">
+                        <h3 style="color: rgba(255,255,255,0.9); font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">Total Brands</h3>
+                        <p class="stat-value" id="staffTotalBrands" style="color: white; font-size: 2rem; font-weight: 700; margin: 0;" th:text="${#lists.size(brands)}">0</p>
+                    </div>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color: white;">
+                    <div class="stat-icon" style="background: rgba(255,255,255,0.2);">📝</div>
+                    <div class="stat-info">
+                        <h3 style="color: rgba(255,255,255,0.9); font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">Total Blogs</h3>
+                        <p class="stat-value" id="staffTotalBlogs" style="color: white; font-size: 2rem; font-weight: 700; margin: 0;">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card" style="padding: 0;">
+                <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-soft);">
+                    <h3 style="margin: 0; font-size: 1.125rem; font-weight: 600;">Quick Actions</h3>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; padding: 1.5rem;">
+                    <a href="#" onclick="activateSection('products'); return false;" class="btn btn-primary" style="text-align: center; padding: 1.25rem; border-radius: 8px; text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; transition: transform 0.2s;">
+                        <div style="font-size: 2rem;">👕</div>
+                        <div style="font-weight: 500;">Products</div>
+                    </a>
+                    <a href="#" onclick="activateSection('brands'); return false;" class="btn btn-secondary" style="text-align: center; padding: 1.25rem; border-radius: 8px; text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; transition: transform 0.2s;">
+                        <div style="font-size: 2rem;">🏷️</div>
+                        <div style="font-weight: 500;">Brands</div>
+                    </a>
+                    <a href="#" onclick="activateSection('orders'); return false;" class="btn btn-info" style="text-align: center; padding: 1.25rem; border-radius: 8px; text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; transition: transform 0.2s;">
+                        <div style="font-size: 2rem;">📦</div>
+                        <div style="font-weight: 500;">Orders</div>
+                    </a>
+                    <a href="#" onclick="activateSection('blogs'); return false;" class="btn btn-warning" style="text-align: center; padding: 1.25rem; border-radius: 8px; text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; transition: transform 0.2s;">
+                        <div style="font-size: 2rem;">📝</div>
+                        <div style="font-weight: 500;">Blogs</div>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section id="products" class="content-section">
+            <div class="section-header">
+                <h2>Products Management</h2>
+                <div class="filter-group">
+                    <input type="text"
+                           class="filter-select"
+                           id="productSearchInput"
+                           placeholder="Search by SKU or Title..."
+                           style="width: 300px;">
+                    <select id="pageSizeSelect" class="filter-select ms-2" style="width: 100px;">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="15">15</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" id="addProductBtn">+ Add Product</button>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                        <tr>
+                            <th style="display: none;">ID</th>
+                            <th>SKU</th>
+                            <th>Image</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Brand</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                        <!-- Filled dynamically by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <nav aria-label="Product pagination" class="mt-3">
+                    <ul class="pagination justify-content-center" id="paginationList">
+                        <!-- Filled dynamically by JS -->
+                    </ul>
+                </nav>
+            </div>
+        </section>
+
+        <!-- Brands Section -->
+        <section id="brands" class="content-section">
+            <div class="section-header">
+                <h2>Brand Management</h2>
+                <button class="btn btn-primary" id="addBrandBtn">+ Add Brand</button>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Slug</th>
+                                <th>Created At</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="brandsTableBody">
+                            <tr th:each="brand : ${brands}" th:id="'brand-row-' + ${brand.id}">
+                                <td th:text="${brand.id}"></td>
+                                <td class="brand-name" th:text="${brand.name}"></td>
+                                <td class="brand-slug" th:text="${brand.slug}"></td>
+                                <td th:text="${#temporals.format(brand.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                                <td>
+                                    <div class="action-btns">
+                                        <button type="button" class="btn btn-sm btn-secondary edit-brand-btn"
+                                            th:data-id="${brand.id}">Edit</button>
+                                        <button type="button" class="btn btn-sm btn-danger delete-brand-btn"
+                                            th:data-id="${brand.id}" th:data-name="${brand.name}">Delete</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Orders Section -->
+        <section id="orders" class="content-section">
+            <div class="section-header">
+                <h2>Orders Management</h2>
+                <div class="filter-group">
+                    <select class="filter-select" id="orderStatusFilter">
+                        <option value="all">All Status</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="COD_PENDING">COD Pending</option>
+                        <option value="PAID">Paid</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Order Code</th>
+                            <th>Customer Name</th>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="ordersTableBody">
+                        <tr th:each="o : ${orders}" th:id="'order-row-' + ${o.id}">
+                            <td th:text="${o.id}"></td>
+                            <td th:text="${o.orderCode}"></td>
+                            <td class="customer-name" th:text="${o.user != null ? o.user.fullName : 'Guest'}"></td>
+                            <td th:text="${#temporals.format(o.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                            <td th:text="'$' + ${o.totalAmount}"></td>
+                            <td>
+                        <span class="badge order-status-badge"
+                              th:classappend="${o.status == 'PENDING' or o.status == 'COD_PENDING' ? 'warning' :
+                                             (o.status == 'PAID' ? 'success' :
+                                             (o.status == 'SHIPPED' or o.status == 'DELIVERED' ? 'info' : 'danger'))}"
+                              th:text="${o.status}"></span>
+                            </td>
+                            <td>
+                                <div class="action-btns">
+                                    <button type="button"
+                                            class="btn btn-sm btn-success update-to-paid-btn"
+                                            th:if="${o.status == 'PENDING' or o.status == 'COD_PENDING'}"
+                                            th:data-id="${o.id}"
+                                            th:data-code="${o.orderCode}">
+                                        Mark as Paid
+                                    </button>
+                                    <button type="button"
+                                            class="btn btn-sm btn-danger cancel-order-btn"
+                                            th:if="${o.status == 'PENDING' or o.status == 'COD_PENDING'}"
+                                            th:data-id="${o.id}"
+                                            th:data-code="${o.orderCode}"
+                                            th:data-email="${o.user != null ? o.user.email : ''}">
+                                        Cancel Order
+                                    </button>
+                                    <span th:unless="${o.status == 'PENDING' or o.status == 'COD_PENDING'}"
+                                          class="text-muted"
+                                          style="font-size: 0.85rem;">
+                                No actions
+                            </span>
+                                </div>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Blogs Section -->
+        <section id="blogs" class="content-section">
+            <!-- Flash Messages -->
+            <div th:if="${success}" class="alert alert-success alert-dismissible fade show" role="alert" style="margin: 20px;">
+                <span th:text="${success}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <div th:if="${error}" class="alert alert-danger alert-dismissible fade show" role="alert" style="margin: 20px;">
+                <span th:text="${error}"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            
+            <div style="display: flex; gap: 20px; min-height: calc(100vh - 200px);">
+                <!-- Left Sidebar - Status Filter -->
+                <aside style="width: 250px; background: #f8f9fa; border-radius: 8px; padding: 20px; height: fit-content; position: sticky; top: 20px;">
+                    <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">Posts</h3>
+                    <nav style="display: flex; flex-direction: column; gap: 8px;">
+                        <a th:href="@{/staff(tab='blogs')}" 
+                           th:classappend="${currentBlogStatus == null or currentBlogStatus == ''} ? 'blog-filter-active'"
+                           style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 6px; text-decoration: none; color: #333; transition: all 0.2s;"
+                           onmouseover="this.style.background='#e9ecef'"
+                           onmouseout="this.style.background='transparent'">
+                            <span>All</span>
+                            <span style="background: #dee2e6; padding: 2px 8px; border-radius: 12px; font-size: 12px;" 
+                                  th:text="${totalBlogs}">0</span>
+                        </a>
+                        <a th:href="@{/staff(tab='blogs', status='PUBLISHED')}" 
+                           th:classappend="${currentBlogStatus == 'PUBLISHED'} ? 'blog-filter-active'"
+                           style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 6px; text-decoration: none; color: #333; transition: all 0.2s;"
+                           onmouseover="this.style.background='#e9ecef'"
+                           onmouseout="this.style.background='transparent'">
+                            <span>Published</span>
+                            <span style="background: #dee2e6; padding: 2px 8px; border-radius: 12px; font-size: 12px;" 
+                                  th:text="${publishedBlogCount}">0</span>
+                        </a>
+                        <a th:href="@{/staff(tab='blogs', status='DRAFT')}" 
+                           th:classappend="${currentBlogStatus == 'DRAFT'} ? 'blog-filter-active'"
+                           style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 6px; text-decoration: none; color: #333; transition: all 0.2s;"
+                           onmouseover="this.style.background='#e9ecef'"
+                           onmouseout="this.style.background='transparent'">
+                            <span>Draft</span>
+                            <span style="background: #dee2e6; padding: 2px 8px; border-radius: 12px; font-size: 12px;" 
+                                  th:text="${draftBlogCount}">0</span>
+                        </a>
+                        <a th:href="@{/staff(tab='blogs', status='PENDING_REVIEW')}" 
+                           th:classappend="${currentBlogStatus == 'PENDING_REVIEW'} ? 'blog-filter-active'"
+                           style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 6px; text-decoration: none; color: #333; transition: all 0.2s;"
+                           onmouseover="this.style.background='#e9ecef'"
+                           onmouseout="this.style.background='transparent'">
+                            <span>Pending</span>
+                            <span style="background: #dee2e6; padding: 2px 8px; border-radius: 12px; font-size: 12px;" 
+                                  th:text="${pendingBlogCount}">0</span>
+                        </a>
+                        <a th:href="@{/staff(tab='blogs', status='PENDING_DELETE')}" 
+                           th:classappend="${currentBlogStatus == 'PENDING_DELETE'} ? 'blog-filter-active'"
+                           style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 6px; text-decoration: none; color: #333; transition: all 0.2s;"
+                           onmouseover="this.style.background='#e9ecef'"
+                           onmouseout="this.style.background='transparent'">
+                            <span>Pending Delete</span>
+                            <span style="background: #dee2e6; padding: 2px 8px; border-radius: 12px; font-size: 12px;">0</span>
+                        </a>
+                    </nav>
+                </aside>
+
+                <!-- Main Content Area -->
+                <div style="flex: 1;">
+                    <!-- Header with Search and Create Button -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="margin: 0;">All posts</h2>
+                        <button class="btn btn-primary" id="addBlogBtn" style="background: #28a745; border: none; padding: 10px 20px; border-radius: 6px; color: white; cursor: pointer; font-weight: 500;">
+                            + CREATE A NEW POST
+                        </button>
+                    </div>
+
+                    <!-- Search and Filter Bar -->
+                    <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                        <form method="get" th:action="@{/staff}" style="flex: 1; display: flex; gap: 12px;">
+                            <input type="hidden" name="tab" value="blogs">
+                            <input type="hidden" name="status" th:value="${currentBlogStatus}">
+                            <input type="text" name="keyword" 
+                                   th:value="${blogKeyword}"
+                                   placeholder="Search by title" 
+                                   style="flex: 1; padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;">
+                            <select name="category" style="padding: 10px 15px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: white;">
+                                <option value="">All categories</option>
+                                <option value="TRENDS">TRENDS</option>
+                                <option value="STYLE TIPS">STYLE TIPS</option>
+                                <option value="ACCESSORIES">ACCESSORIES</option>
+                                <option value="INSPIRATION">INSPIRATION</option>
+                                <option value="SEASONAL">SEASONAL</option>
+                                <option value="BEAUTY">BEAUTY</option>
+                            </select>
+                            <button type="submit" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer;">Search</button>
+                        </form>
+                    </div>
+
+                    <!-- Blog Posts List - Card Layout -->
+                    <div id="blogsList" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div th:each="blog : ${blogs}" 
+                             th:id="'blog-card-' + ${blog.id}"
+                             style="display: flex; gap: 16px; background: white; border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; transition: box-shadow 0.2s;"
+                             onmouseover="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.1)'"
+                             onmouseout="this.style.boxShadow='none'">
+                            <!-- Thumbnail -->
+                            <div style="width: 120px; height: 80px; background: #f8f9fa; border-radius: 6px; overflow: hidden; flex-shrink: 0;">
+                                <img th:if="${blog.imageUrl != null and !blog.imageUrl.isEmpty()}" 
+                                     th:src="${blog.imageUrl}" 
+                                     alt="Blog thumbnail"
+                                     style="width: 100%; height: 100%; object-fit: cover;">
+                                <div th:if="${blog.imageUrl == null or blog.imageUrl.isEmpty()}" 
+                                     style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #adb5bd; font-size: 24px;">
+                                    📝
+                                </div>
+                            </div>
+                            
+                            <!-- Content -->
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                    <div style="flex: 1;">
+                                        <span class="badge" 
+                                              th:classappend="${blog.status.name() == 'PUBLISHED' ? 'success' : 
+                                                              (blog.status.name() == 'PENDING_REVIEW' ? 'warning' : 
+                                                              (blog.status.name() == 'PENDING_DELETE' ? 'danger' :
+                                                              (blog.status.name() == 'DRAFT' ? 'info' : 'danger')))}"
+                                              th:text="${blog.status}"
+                                              style="display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">
+                                        </span>
+                                        <h3 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 600; color: #212529;">
+                                            <span th:text="${blog.title}"></span>
+                                        </h3>
+                                    </div>
+                                    <div style="display: flex; gap: 8px; align-items: center; margin-left: 16px;">
+                                        <a th:href="@{/staff/blog/view/{id}(id=${blog.id})}"
+                                           style="padding: 6px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; text-decoration: none; display: inline-block;">
+                                            VIEW
+                                        </a>
+                                        <button type="button" 
+                                                class="btn btn-sm btn-primary"
+                                                th:onclick="'editBlog(' + ${blog.id} + ')'"
+                                                style="padding: 6px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+                                            EDIT
+                                        </button>
+                                        <button type="button" 
+                                                th:if="${blog.status.name() == 'DRAFT'}"
+                                                class="btn btn-sm btn-warning"
+                                                th:onclick="'submitBlogForReview(' + ${blog.id} + ', this)'"
+                                                style="padding: 6px 16px; background: #ffc107; color: #212529; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+                                            SUBMIT
+                                        </button>
+                                        <button type="button" 
+                                                th:if="${blog.status.name() == 'PUBLISHED'}"
+                                                class="btn btn-sm btn-danger"
+                                                th:onclick="'requestDeleteBlog(' + ${blog.id} + ', this)'"
+                                                style="padding: 6px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+                                            DELETE
+                                        </button>
+                                    </div>
+                                </div>
+                                <p style="margin: 0 0 8px 0; color: #6c757d; font-size: 13px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;"
+                                   th:text="${blog.excerpt}">
+                                </p>
+                                <div style="display: flex; gap: 16px; font-size: 12px; color: #6c757d;">
+                                    <span th:if="${blog.createdAt != null}">
+                                        <span th:text="${#temporals.format(blog.createdAt, 'dd/MM/yyyy')}"></span>
+                                    </span>
+                                    <span th:if="${blog.viewCount != null}">
+                                        <span th:text="${blog.viewCount}"></span> views
+                                    </span>
+                                    <span th:if="${blog.category != null}">
+                                        <span th:text="${blog.category}"></span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div th:if="${blogs == null or blogs.isEmpty()}" 
+                             style="text-align: center; padding: 60px 20px; background: white; border-radius: 8px; border: 1px solid #e9ecef;">
+                            <div style="font-size: 48px; margin-bottom: 16px;">📝</div>
+                            <p style="font-size: 18px; color: #6c757d; margin: 0;">No blog posts found</p>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div th:if="${blogTotalPages != null and blogTotalPages > 1}" 
+                         style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 30px;">
+                        <a th:href="@{/staff(tab='blogs', status=${currentBlogStatus}, keyword=${blogKeyword}, blogPage=${blogCurrentPage - 1})}"
+                           th:if="${blogCurrentPage > 0}"
+                           style="padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #007bff;">
+                            ← Previous
+                        </a>
+                        <span th:each="i : ${#numbers.sequence(0, (blogTotalPages > 0 ? blogTotalPages - 1 : 0))}"
+                              th:if="${i >= blogCurrentPage - 2 and i <= blogCurrentPage + 2}">
+                            <a th:href="@{/staff(tab='blogs', status=${currentBlogStatus}, keyword=${blogKeyword}, blogPage=${i})}"
+                               th:classappend="${i == blogCurrentPage} ? 'pagination-active'"
+                               th:text="${i + 1}"
+                               style="padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #007bff; margin: 0 4px; display: inline-block;">
+                            </a>
+                        </span>
+                        <a th:href="@{/staff(tab='blogs', status=${currentBlogStatus}, keyword=${blogKeyword}, blogPage=${blogCurrentPage + 1})}"
+                           th:if="${blogCurrentPage < blogTotalPages - 1}"
+                           style="padding: 8px 12px; border: 1px solid #dee2e6; border-radius: 4px; text-decoration: none; color: #007bff;">
+                            Next →
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+                .blog-filter-active {
+                    background: #007bff !important;
+                    color: white !important;
+                }
+                .blog-filter-active span {
+                    background: rgba(255,255,255,0.2) !important;
+                    color: white !important;
+                }
+                .pagination-active {
+                    background: #007bff !important;
+                    color: white !important;
+                    border-color: #007bff !important;
+                }
+            </style>
+        </section>
+    </main>
+
+    <!-- Brand Modal -->
+    <div id="brandModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="brandModalTitle">Add New Brand</h2>
+                <button class="close-modal" onclick="closeBrandModal()">&times;</button>
+            </div>
+            <form th:action="@{/staff/brand/save}" method="post" id="brandForm">
+                <input type="hidden" id="brandId" name="id">
+                <div class="form-group">
+                    <label>Brand Name</label>
+                    <input type="text" id="brandName" name="name" required maxlength="150"
+                        placeholder="e.g., Nike, Adidas">
+                </div>
+                <div class="form-group">
+                    <label>Slug</label>
+                    <input type="text" id="brandSlug" name="slug" required maxlength="150"
+                        placeholder="e.g., nike, adidas">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary"
+                        onclick="closeBrandModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Brand</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CANCEL ORDER MODAL -->
+    <div id="cancelOrderModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cancel Order</h2>
+                <button class="close-modal" onclick="closeCancelOrderModal()">&times;</button>
+            </div>
+            <form id="cancelOrderForm">
+                <input type="hidden" id="cancelOrderId" name="orderId">
+                <div class="form-group">
+                    <label>Order Code</label>
+                    <input type="text" id="cancelOrderCode" readonly style="background-color: #f3f4f6;">
+                </div>
+                <div class="form-group">
+                    <label>Customer Email</label>
+                    <input type="text" id="cancelCustomerEmail" readonly style="background-color: #f3f4f6;">
+                    <small style="color: #6b7280; font-size: 0.85rem; display: block; margin-top: 4px;">
+                        📧 Notification email will be sent to this address
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label>Reason for Cancellation *</label>
+                    <select id="cancelReason" name="reason" required class="form-control">
+                        <option value="">Select a reason...</option>
+                        <option value="Product out of stock">Product out of stock</option>
+                        <option value="Technical issue">Technical issue</option>
+                        <option value="Payment processing error">Payment processing error</option>
+                        <option value="Customer request">Customer request</option>
+                        <option value="Inventory discrepancy">Inventory discrepancy</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group" id="customReasonGroup" style="display: none;">
+                    <label>Please specify</label>
+                    <textarea id="customReason" name="customReason" rows="3"
+                              placeholder="Enter detailed reason..."
+                              style="width: 100%; padding: 0.65rem 0.8rem; border-radius: 0.65rem; border: 1px solid #d9e6f5;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCancelOrderModal()">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Confirm Cancellation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PRODUCT MODAL -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="productModalTitle">Add New Product</h2>
+                <button class="close-modal" onclick="closeProductModal()">X</button>
+            </div>
+
+            <form th:action="@{/staff/products/save}" method="post" id="productForm">
+                <input type="hidden" id="productId" name="id">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>SKU *</label>
+                        <input type="text" id="productSku" name="sku" required placeholder="e.g., TS-001">
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="productActive" name="active">
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Product Title *</label>
+                    <input type="text" id="productTitle" name="title" required placeholder="e.g., Classic T-Shirt">
+                </div>
+
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="productDescription" name="description" rows="3"
+                        placeholder="Product description..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="productCategoryId" name="categoryId" required>
+                            <option value="">Select Category</option>
+                            <option th:each="cat : ${categories}" th:value="${cat.id}" th:text="${cat.name}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Brand</label>
+                        <select id="productBrandId" name="brandId">
+                            <option value="">Optional</option>
+                            <option th:each="brand : ${brands}" th:value="${brand.id}" th:text="${brand.name}"></option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Base Price ($) *</label>
+                    <input type="number" id="productPrice" name="basePrice" step="0.01" min="0" required
+                        placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label>Image URLs (comma-separated)</label>
+                    <textarea id="productImageUrls" name="imageUrls" rows="2"
+                        placeholder="https://example.com/img1.jpg, https://example.com/img2.jpg"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Variants</label>
+                    <div id="variantsContainer"></div>
+                    <button type="button" class="btn btn-secondary" id="addVariantBtn" style="margin-top:8px;">Add
+                        Variant</button>
+                </div>
+                <input type="hidden" id="variantsJson" name="variantsJson">
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- BLOG MODAL -->
+    <div id="blogModal" class="modal">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2 id="blogModalTitle">Create New Blog</h2>
+                <button class="close-modal" onclick="closeBlogModal()">&times;</button>
+            </div>
+            <form id="blogForm" onsubmit="handleSaveBlog(event)">
+                <input type="hidden" id="blogId" name="id">
+                
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" id="blogTitle" name="title" required maxlength="200" 
+                           class="form-control" placeholder="Enter blog title">
+                </div>
+
+                <div class="form-group">
+                    <label>Excerpt *</label>
+                    <textarea id="blogExcerpt" name="excerpt" rows="3" required maxlength="500" 
+                              class="form-control" placeholder="Short description of the blog"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Content *</label>
+                    <textarea id="blogContent" name="content" rows="10" required 
+                              class="form-control" placeholder="Blog content (HTML supported)"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="blogCategory" name="category" required class="form-control">
+                            <option value="">Select Category</option>
+                            <option value="TRENDS">TRENDS</option>
+                            <option value="STYLE TIPS">STYLE TIPS</option>
+                            <option value="ACCESSORIES">ACCESSORIES</option>
+                            <option value="INSPIRATION">INSPIRATION</option>
+                            <option value="SEASONAL">SEASONAL</option>
+                            <option value="BEAUTY">BEAUTY</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Read Time (minutes)</label>
+                        <input type="number" id="blogReadTime" name="readTime" min="1" 
+                               class="form-control" placeholder="e.g., 5">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Image URL</label>
+                    <input type="url" id="blogImageUrl" name="imageUrl" maxlength="500" 
+                           class="form-control" placeholder="https://example.com/image.jpg">
+                </div>
+
+                <div class="form-group">
+                    <label>Author</label>
+                    <input type="text" id="blogAuthor" name="author" maxlength="200" 
+                           class="form-control" placeholder="Author name">
+                </div>
+
+                <div class="form-group">
+                    <label>Tags (comma-separated)</label>
+                    <input type="text" id="blogTags" name="tags" maxlength="500" 
+                           class="form-control" placeholder="tag1, tag2, tag3">
+                </div>
+
+                <div class="form-group">
+                    <label>Meta Description (SEO)</label>
+                    <textarea id="blogMetaDescription" name="metaDescription" rows="2" maxlength="160" 
+                              class="form-control" placeholder="SEO description (max 160 characters)"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Slug (URL-friendly)</label>
+                    <input type="text" id="blogSlug" name="slug" maxlength="200" 
+                           class="form-control" placeholder="url-friendly-slug (auto-generated if empty)">
+                    <small class="form-text text-muted">Leave empty to auto-generate from title</small>
+                </div>
+
+                <div class="form-group">
+                    <div class="form-check">
+                        <input type="checkbox" id="blogIsFeatured" name="isFeatured" class="form-check-input">
+                        <label class="form-check-label" for="blogIsFeatured">Featured Blog</label>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeBlogModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Blog</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script th:src="@{/js/staff.js}"></script>
+
+    <script th:inline="javascript">
+        const contextPath = /*[[@{/}]]*/ '/';
+
+        // --- 1. UTILITIES ---
+
+        // Toast Notification
+        function showToast(message, type = 'success') {
+            // Xóa toast cũ nếu có để tránh chồng chéo
+            const existingToast = document.querySelector('.toast-notification');
+            if (existingToast) existingToast.remove();
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification ${type}`;
+            const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '⚠';
+
+            toast.innerHTML = `
+                <span class="toast-icon">${icon}</span>
+                <span class="toast-message">${message}</span>
+            `;
+
+            document.body.appendChild(toast);
+
+            // Animation CSS handling (Assuming CSS exists)
+            setTimeout(() => {
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Helper: Toggle Modal visibility
+        function toggleModal(modalId, show) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = show ? 'flex' : 'none';
+                if (show) modal.classList.add('active'); // For product modal style compatibility
+                else modal.classList.remove('active');
+            }
+        }
+
+        // --- 2. NAVIGATION & PERSISTENCE ---
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const navItems = document.querySelectorAll('.nav-item');
+            const sections = document.querySelectorAll('.content-section');
+            const pageTitle = document.getElementById('pageTitle');
+
+            // Lấy tab từ URL parameter - ƯU TIÊN DUY NHẤT
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabFromUrl = urlParams.get('tab');
+            
+            // CHỈ lấy từ URL parameter, nếu không có thì mặc định dashboard
+            // KHÔNG sử dụng localStorage khi reload để tránh nhảy vào tab sai
+            let activeSectionId = tabFromUrl || 'dashboard';
+
+            // Hàm kích hoạt tab
+            function activateTab(sectionId, updateUrl = true) {
+                // Update Nav state
+                navItems.forEach(nav => {
+                    if (nav.dataset.section === sectionId) nav.classList.add('active');
+                    else nav.classList.remove('active');
+                });
+
+                // Update Section visibility
+                sections.forEach(section => {
+                    if (section.id === sectionId) section.classList.add('active');
+                    else section.classList.remove('active');
+                });
+
+                // Update Title
+                const activeNav = document.querySelector(`.nav-item[data-section="${sectionId}"]`);
+                if (activeNav) pageTitle.textContent = activeNav.textContent.trim();
+
+                // Cập nhật URL với ?tab= để giữ tab khi reload
+                if (updateUrl) {
+                    const url = new URL(window.location);
+                    url.searchParams.set('tab', sectionId);
+                    window.history.pushState({ tab: sectionId }, '', url);
+                }
+            }
+
+            // Khởi chạy tab ban đầu (không cập nhật URL vì URL đã có sẵn)
+            activateTab(activeSectionId, false);
+
+            // Sự kiện click menu
+            navItems.forEach(item => {
+                item.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    activateTab(this.dataset.section, true); // Cập nhật URL khi click
+                });
+            });
+            
+            // Xử lý khi người dùng dùng browser back/forward
+            window.addEventListener('popstate', function(e) {
+                const urlParams = new URLSearchParams(window.location.search);
+                const tabFromUrl = urlParams.get('tab') || 'dashboard';
+                activateTab(tabFromUrl, false);
+            });
+
+            // Load Dashboard Data
+            async function loadStaffDashboardData() {
+                try {
+                    const statsRes = await fetch(contextPath + 'staff/dashboard/stats');
+                    if (statsRes.ok) {
+                        const stats = await statsRes.json();
+                        
+                        // Update product stats
+                        document.getElementById('staffTotalProducts').textContent = stats.products.total || 0;
+                        document.getElementById('staffActiveProducts').textContent = `${stats.products.active || 0} active`;
+                        
+                        // Update brand stats
+                        document.getElementById('staffTotalBrands').textContent = stats.brands.total || 0;
+                        
+                        // Update order stats
+                        document.getElementById('staffTotalOrders').textContent = stats.orders.total || 0;
+                        document.getElementById('staffPendingOrders').textContent = `${stats.orders.pending || 0} pending`;
+                        document.getElementById('staffCompletedOrders').textContent = `${stats.orders.completed || 0} completed`;
+                        
+                        // Update blog stats
+                        document.getElementById('staffTotalBlogs').textContent = stats.blogs.total || 0;
+                    }
+                } catch (error) {
+                    console.error('Error loading staff dashboard data:', error);
+                }
+            }
+
+            // Load dashboard data when dashboard section is active
+            if (activeSectionId === 'dashboard') {
+                loadStaffDashboardData();
+            }
+
+            // Reload dashboard data when switching to dashboard section
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    if (this.dataset.section === 'dashboard') {
+                        setTimeout(loadStaffDashboardData, 100);
+                    }
+                });
+            });
+
+            // Expose activateSection for quick actions
+            window.activateSection = function(sectionId) {
+                activateTab(sectionId, true);
+            };
+        });
+
+        // --- 3. BRAND MANAGEMENT (Đã sửa lỗi Reload) ---
+
+        // Open Add Brand Modal
+        document.getElementById('addBrandBtn')?.addEventListener('click', function () {
+            document.getElementById('brandModalTitle').textContent = 'Add New Brand';
+            document.getElementById('brandForm').reset();
+            document.getElementById('brandId').value = ''; // ID rỗng = Add new
+            toggleModal('brandModal', true);
+        });
+
+        // Auto Generate Slug
+        document.getElementById('brandName')?.addEventListener('input', function (e) {
+            const slug = e.target.value.toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+            document.getElementById('brandSlug').value = slug;
+        });
+
+        // Close Brand Modal
+        window.closeBrandModal = function () { toggleModal('brandModal', false); };
+
+        // Edit Brand: Fetch Data
+        window.editBrand = function (id) {
+            const btn = document.querySelector(`.edit-brand-btn[data-id="${id}"]`);
+            if (btn) btn.textContent = '...'; // Loading indicator
+
+            fetch(contextPath + 'staff/brand/' + id, { headers: { 'Accept': 'application/json' } })
+                .then(r => {
+                    if (!r.ok) throw new Error('Brand not found');
+                    return r.json();
+                })
+                .then(brand => {
+                    document.getElementById('brandModalTitle').textContent = 'Edit Brand';
+                    document.getElementById('brandId').value = brand.id;
+                    document.getElementById('brandName').value = brand.name;
+                    document.getElementById('brandSlug').value = brand.slug;
+                    toggleModal('brandModal', true);
+                })
+                .catch(err => showToast(err.message, 'error'))
+                .finally(() => { if (btn) btn.textContent = 'Edit'; });
+        }
+
+        // *** BRAND SUBMIT HANDLER (CORE FIX) ***
+        document.getElementById('brandForm')?.addEventListener('submit', function (e) {
+            e.preventDefault(); // Chặn reload form mặc định
+
+            const form = this;
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            // UI Loading state
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+
+            const isEdit = formData.get('id') && formData.get('id') !== '';
+
+            fetch(contextPath + 'staff/brand/save', {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            })
+                .then(response => {
+                    if (response.ok) {
+                        toggleModal('brandModal', false);
+
+                        if (isEdit) {
+                            // LOGIC CẬP NHẬT GIAO DIỆN KHÔNG RELOAD
+                            const id = formData.get('id');
+                            const name = formData.get('name');
+                            const slug = formData.get('slug');
+
+                            // Tìm dòng trong bảng dựa vào ID (đã thêm ở Bước 1)
+                            const row = document.getElementById('brand-row-' + id);
+                            if (row) {
+                                row.querySelector('.brand-name').textContent = name;
+                                row.querySelector('.brand-slug').textContent = slug;
+
+                                // Hiệu ứng nháy màu xanh để báo hiệu đã sửa
+                                row.style.backgroundColor = '#d4edda';
+                                row.style.transition = 'background-color 0.5s';
+                                setTimeout(() => row.style.backgroundColor = '', 1000);
+                            }
+                            showToast('Brand updated successfully!', 'success');
+                        } else {
+                            // Nếu là Thêm mới (Add), ta vẫn nên reload để lấy ID mới từ server
+                            // (hoặc append row nếu backend trả về JSON object đầy đủ)
+                            showToast('New brand added! Reloading...', 'success');
+                            setTimeout(() => window.location.reload(), 1000);
+                        }
+                    } else {
+                        throw new Error('Failed to save brand');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('Save failed. Please try again.', 'error');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                });
+        });
+
+        // --- 4. PRODUCT MANAGEMENT ---
+
+        // ==================== DYNAMIC PAGINATION FOR PRODUCTS ====================
+        let currentPage = 0;
+        let currentSize = 10;
+        let currentKeyword = '';
+
+        // Simple debounce helper
+        const debounce = (func, delay) => {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => func.apply(this, args), delay);
+            };
+        };
+
+        function loadProducts(page = 0, size = 10, keyword = '') {
+            currentPage = page;
+            currentSize = size;
+            currentKeyword = keyword;
+
+            const params = new URLSearchParams({
+                page: page,
+                size: size
+            });
+            if (keyword) params.append('keyword', keyword);
+
+            fetch(`${contextPath}staff/products/paginated?${params}`)
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed');
+                    return res.json();
+                })
+                .then(data => {
+                    const tbody = document.getElementById('productsTableBody');
+                    tbody.innerHTML = '';
+
+                    data.content.forEach(p => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td style="display: none;">${p.id}</td>
+                            <td>${p.sku || ''}</td>
+                            <td><img src="${p.primaryImageUrl || ''}" alt="img"
+                                     style="width:50px;height:50px;object-fit:cover;border-radius:4px;"></td>
+                            <td>${p.title || ''}</td>
+                            <td>${p.category ? p.category.name : 'N/A'}</td>
+                            <td>${p.brand ? p.brand.name : 'N/A'}</td>
+                            <td>$${Number(p.basePrice || 0).toFixed(2)}</td>
+                            <td><span class="badge ${p.active ? 'success' : 'danger'}">${p.active ? 'Active' : 'Inactive'}</span></td>
+                            <td>
+                                <div class="action-btns">
+                                    <button type="button" class="btn btn-secondary btn-sm"
+                                            onclick="editProduct(${p.id})">Edit</button>
+                                    <button type="button"
+                                            class="btn btn-sm toggle-active-btn ${p.active ? 'btn-warning' : 'btn-success'}"
+                                            data-id="${p.id}" data-active="${p.active}">
+                                        <span>${p.active ? 'Deactivate' : 'Activate'}</span>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger delete-product-btn"
+                                            data-id="${p.id}" data-title="${p.title}">Delete</button>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+
+                    renderPagination(data.currentPage, data.totalPages);
+                    // Update total products counter on dashboard
+                    const counter = document.querySelectorAll('.stat-card .stat-value')[0];
+                    if (counter) counter.textContent = data.totalElements;
+                })
+                .catch(() => showToast('Failed to load products', 'error'));
+        }
+
+        function renderPagination(current, total) {
+            const ul = document.getElementById('paginationList');
+            ul.innerHTML = '';
+
+            // Previous
+            const prev = `<li class="page-item ${current === 0 ? 'disabled' : ''}">
+                          <a class="page-link" href="#" data-page="${current - 1}">Previous</a></li>`;
+            ul.innerHTML += prev;
+
+            // Pages (show max 7 buttons, ellipsis if needed)
+            let start = Math.max(0, current - 3);
+            let end   = Math.min(total, current + 4);
+            if (start > 0) ul.innerHTML += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+            for (let i = start; i < end; i++) {
+                ul.innerHTML += `<li class="page-item ${i === current ? 'active' : ''}">
+                                 <a class="page-link" href="#" data-page="${i}">${i + 1}</a></li>`;
+            }
+            if (end < total) ul.innerHTML += `<li class="page-item disabled"><span class="page-link">…</span></li>`;
+
+            // Next
+            const next = `<li class="page-item ${current >= total - 1 ? 'disabled' : ''}">
+                          <a class="page-link" href="#" data-page="${current + 1}">Next</a></li>`;
+            ul.innerHTML += next;
+        }
+
+        // Pagination click
+        document.getElementById('paginationList').addEventListener('click', e => {
+            const link = e.target.closest('.page-link');
+            if (link && !link.parentElement.classList.contains('disabled')) {
+                e.preventDefault();
+                const page = parseInt(link.dataset.page);
+                loadProducts(page, currentSize, currentKeyword);
+            }
+        });
+
+        // Search with debounce
+        document.getElementById('productSearchInput').addEventListener('input', debounce(e => {
+            loadProducts(0, currentSize, e.target.value.trim());
+        }, 400));
+
+        // Page size change
+        document.getElementById('pageSizeSelect').addEventListener('change', e => {
+            loadProducts(0, parseInt(e.target.value), currentKeyword);
+        });
+
+        // Load products when the Products tab becomes active
+        document.querySelector('[data-section="products"]').addEventListener('click', () => {
+            if (document.getElementById('products').classList.contains('active')) {
+                loadProducts(0, currentSize, currentKeyword);
+            }
+        });
+
+        // Initial load when page finishes loading (or when Products tab is first opened)
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('products').classList.contains('active')) {
+                loadProducts();
+            }
+        });
+
+        // Toggle Active
+        window.toggleProductActive = function (btn) {
+            const productId = btn.dataset.id;
+            const isActive = btn.dataset.active === 'true';
+            btn.disabled = true;
+
+            fetch(contextPath + 'staff/products/' + productId + '/toggle-active', { method: 'POST' })
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed');
+
+                    const newActive = !isActive;
+                    btn.dataset.active = newActive;
+
+                    // Update Button Style
+                    btn.classList.toggle('btn-warning', newActive);
+                    btn.classList.toggle('btn-success', !newActive);
+                    btn.querySelector('span').textContent = newActive ? 'Deactivate' : 'Activate';
+
+                    // Update Badge
+                    const row = btn.closest('tr');
+                    const badge = row.querySelector('.badge');
+                    badge.className = `badge ${newActive ? 'success' : 'danger'}`;
+                    badge.textContent = newActive ? 'Active' : 'Inactive';
+
+                    showToast(`Product ${newActive ? 'activated' : 'deactivated'}!`, 'success');
+                })
+                .catch(() => showToast('Error updating status', 'error'))
+                .finally(() => btn.disabled = false);
+        };
+
+        // Delete Product
+        window.deleteProduct = function (btn) {
+            const id = btn.dataset.id;
+            const title = btn.dataset.title;
+
+            if (!confirm(`Delete product "${title}"?`)) return;
+
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            fetch(contextPath + 'staff/products/' + id + '/delete', { method: 'POST' })
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed');
+
+                    const row = btn.closest('tr');
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 300);
+
+                    // Update counter
+                    const counter = document.querySelector('.stat-card .stat-value');
+                    if (counter) counter.textContent = parseInt(counter.textContent) - 1;
+
+                    showToast('Product deleted!', 'success');
+                })
+                .catch(() => {
+                    showToast('Delete failed', 'error');
+                    btn.disabled = false;
+                    btn.textContent = 'Delete';
+                });
+        };
+
+        // Product Search Functionality
+        document.getElementById('productSearchInput')?.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            const tableBody = document.getElementById('productsTableBody');
+            const rows = tableBody.querySelectorAll('tr');
+
+            rows.forEach(row => {
+                const sku = row.cells[1]?.textContent.toLowerCase() || '';
+                const title = row.cells[3]?.textContent.toLowerCase() || '';
+
+                if (sku.includes(searchTerm) || title.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // Product Modal & Variants
+        window.closeProductModal = function () { toggleModal('productModal', false); };
+
+        document.getElementById('addProductBtn')?.addEventListener('click', function () {
+            document.getElementById('productModalTitle').textContent = 'Add New Product';
+            document.getElementById('productForm').reset();
+            document.getElementById('productId').value = '';
+            document.getElementById('variantsContainer').innerHTML = '';
+            toggleModal('productModal', true);
+        });
+
+        function addVariantRow(data = { size: '', color: '', sku: '', price: '', stock: 0 }) {
+            const container = document.getElementById('variantsContainer');
+            const row = document.createElement('div');
+            row.className = 'variant-row';
+            row.innerHTML = `
+                <input type="text" class="variant-size" placeholder="Size" value="${data.size}">
+                <input type="text" class="variant-color" placeholder="Color" value="${data.color}">
+                <input type="text" class="variant-sku" placeholder="Variant SKU" value="${data.sku}">
+                <input type="number" step="0.01" class="variant-price" placeholder="Price" value="${data.price}">
+                <input type="number" class="variant-stock" placeholder="Stock" value="${data.stock}">
+                <button type="button" class="remove-variant">Remove</button>
+            `;
+            container.appendChild(row);
+            row.querySelector('.remove-variant').addEventListener('click', () => row.remove());
+        }
+
+        document.getElementById('addVariantBtn')?.addEventListener('click', () => addVariantRow());
+
+        // Product Submit: Gather JSON
+        // Product Submit: Gather JSON + AJAX giống Brands
+        document.getElementById('productForm')?.addEventListener('submit', function (e) {
+            e.preventDefault(); // không cho form redirect mặc định
+
+            const form = this;
+
+            // 1. Build variantsJson
+            const variants = Array.from(document.querySelectorAll('.variant-row')).map(row => {
+                const size = row.querySelector('.variant-size').value.trim();
+                const color = row.querySelector('.variant-color').value.trim();
+                if (!size && !color) return null;
+
+                return {
+                    sku: row.querySelector('.variant-sku').value.trim(),
+                    attributeJson: JSON.stringify({ size, color }),
+                    price: row.querySelector('.variant-price').value || '',
+                    stock: row.querySelector('.variant-stock').value || ''
+                };
+            }).filter(v => v !== null);
+
+            document.getElementById('variantsJson').value = JSON.stringify(variants);
+
+            // 2. Gửi form bằng fetch
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            const isEdit = formData.get('id') && formData.get('id') !== '';
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
+
+            fetch(contextPath + 'staff/products/save', {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error('Failed to save product');
+
+                    // Đóng modal
+                    toggleModal('productModal', false);
+
+                    // Lưu tab hiện tại là Products để sau reload vẫn ở đó
+                    localStorage.setItem('staffActiveTab', 'products');
+
+                    // Thông báo
+                    showToast(isEdit ? 'Product updated successfully!' : 'New product created!', 'success');
+
+                    // Reload lại trang để load lại list product
+                    setTimeout(() => window.location.reload(), 800);
+                })
+                .catch(err => {
+                    console.error(err);
+                    showToast('Save product failed. Please try again.', 'error');
+                })
+                .finally(() => {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                });
+        });
+
+
+        // Edit Product Fetch
+        window.editProduct = function (id) {
+            fetch(contextPath + 'staff/products/' + id, { headers: { 'Accept': 'application/json' } })
+                .then(r => r.ok ? r.json() : Promise.reject('Error'))
+                .then(p => {
+                    document.getElementById('productModalTitle').textContent = 'Edit Product';
+                    document.getElementById('productId').value = p.id;
+                    document.getElementById('productSku').value = p.sku || '';
+                    document.getElementById('productTitle').value = p.title || '';
+                    document.getElementById('productDescription').value = p.description || '';
+                    document.getElementById('productCategoryId').value = p.category?.id || '';
+                    document.getElementById('productBrandId').value = p.brand?.id || '';
+                    document.getElementById('productPrice').value = p.basePrice || '';
+                    document.getElementById('productActive').value = p.active ? 'true' : 'false';
+                    document.getElementById('productImageUrls').value = p.images ? p.images.map(i => i.url).join(', ') : '';
+
+                    // Variants
+                    const container = document.getElementById('variantsContainer');
+                    container.innerHTML = 'Loading variants...';
+
+                    fetch(contextPath + 'staff/products/' + id + '/variants')
+                        .then(r => r.json())
+                        .then(variants => {
+                            container.innerHTML = '';
+                            variants.forEach(v => {
+                                let attr = {};
+                                try { attr = JSON.parse(v.attributeJson || '{}'); } catch (e) { }
+                                addVariantRow({
+                                    size: attr.size || '', color: attr.color || '',
+                                    sku: v.sku || '', price: v.price || '', stock: v.stock || 0
+                                });
+                            });
+                        });
+
+                    toggleModal('productModal', true);
+                })
+                .catch(err => showToast('Failed to load product', 'error'));
+        }
+
+        // --- 5. GLOBAL EVENT DELEGATION (Cleaner way) ---
+        document.addEventListener('click', function (e) {
+            // Brand Edit
+            if (e.target.closest('.edit-brand-btn')) {
+                window.editBrand(e.target.closest('.edit-brand-btn').dataset.id);
+            }
+            // Brand Delete
+            if (e.target.closest('.delete-brand-btn')) {
+                const btn = e.target.closest('.delete-brand-btn');
+                const id = btn.dataset.id;
+                const name = btn.dataset.name;
+                if (confirm(`Delete brand "${name}"?`)) {
+                    // Logic delete tương tự product, có thể tách hàm riêng nếu muốn
+                    btn.disabled = true;
+                    fetch(contextPath + 'staff/brand/' + id + '/delete', { method: 'POST' })
+                        .then(r => {
+                            if (r.ok) {
+                                const row = document.getElementById('brand-row-' + id); // Sử dụng ID đã thêm ở bước 1
+                                if (row) row.remove();
+                                showToast('Brand deleted', 'success');
+                            } else throw new Error();
+                        })
+                        .catch(() => { showToast('Error deleting brand', 'error'); btn.disabled = false; });
+                }
+            }
+            // Product Actions
+            if (e.target.closest('.toggle-active-btn')) {
+                e.preventDefault();
+                window.toggleProductActive(e.target.closest('.toggle-active-btn'));
+            }
+            if (e.target.closest('.delete-product-btn')) {
+                e.preventDefault();
+                window.deleteProduct(e.target.closest('.delete-product-btn'));
+            }
+        });
+
+        // Dropdown Profile
+        document.querySelector('.dropdown-toggle')?.addEventListener('click', function (e) {
+            e.stopPropagation();
+            this.nextElementSibling.classList.toggle('show');
+        });
+        document.addEventListener('click', function () {
+            document.querySelector('.dropdown-menu')?.classList.remove('show');
+        });
+
+        // --- 5. ORDER MANAGEMENT ---
+
+        // Update Order to Paid
+        function updateOrderToPaid(btn) {
+            const orderId = btn.dataset.id;
+            const orderCode = btn.dataset.code;
+
+            if (!confirm(`Mark order ${orderCode} as PAID?`)) return;
+
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Updating...';
+
+            fetch(contextPath + 'staff/orders/' + orderId + '/update-to-paid', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(data => {
+                            throw new Error(data.message || 'Update failed');
+                        });
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Update badge in the table
+                        const row = document.getElementById('order-row-' + orderId);
+                        if (row) {
+                            const badge = row.querySelector('.order-status-badge');
+                            badge.className = 'badge order-status-badge success';
+                            badge.textContent = data.newStatus; // Will be 'PAID'
+
+                            // Remove the button and show "No actions"
+                            const actionsCell = row.querySelector('.action-btns');
+                            actionsCell.innerHTML = '<span class="text-muted" style="font-size: 0.85rem;">No actions</span>';
+
+                            // Highlight effect
+                            row.style.backgroundColor = '#d4edda';
+                            row.style.transition = 'background-color 0.5s';
+                            setTimeout(() => row.style.backgroundColor = '', 1500);
+                        }
+
+                        showToast(data.message || 'Order updated successfully!', 'success');
+                    } else {
+                        throw new Error(data.message || 'Update failed');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    showToast(err.message || 'Failed to update order status', 'error');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                });
+        }
+
+        // Order Status Filter - Updated to handle uppercase status values
+        document.getElementById('orderStatusFilter')?.addEventListener('change', function(e) {
+            const selectedStatus = e.target.value; // Keep original case (uppercase)
+            const tableBody = document.getElementById('ordersTableBody');
+            const rows = tableBody.querySelectorAll('tr');
+
+            rows.forEach(row => {
+                const statusBadge = row.querySelector('.order-status-badge');
+                if (!statusBadge) return;
+
+                const rowStatus = statusBadge.textContent.trim(); // Keep original case
+
+                if (selectedStatus === 'all' || rowStatus === selectedStatus) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // --- 6. ORDER CANCELLATION ---
+
+        // Cancel Order Modal
+        window.openCancelOrderModal = function(orderId, orderCode, customerEmail) {
+            document.getElementById('cancelOrderId').value = orderId;
+            document.getElementById('cancelOrderCode').value = orderCode;
+            document.getElementById('cancelCustomerEmail').value = customerEmail || 'N/A (Guest order)';
+            document.getElementById('cancelReason').value = '';
+            document.getElementById('customReason').value = '';
+            document.getElementById('customReasonGroup').style.display = 'none';
+            toggleModal('cancelOrderModal', true);
+        };
+
+        window.closeCancelOrderModal = function() {
+            toggleModal('cancelOrderModal', false);
+        };
+
+        // Show custom reason field when "Other" is selected
+        document.getElementById('cancelReason')?.addEventListener('change', function(e) {
+            const customReasonGroup = document.getElementById('customReasonGroup');
+            if (e.target.value === 'Other') {
+                customReasonGroup.style.display = 'block';
+                document.getElementById('customReason').required = true;
+            } else {
+                customReasonGroup.style.display = 'none';
+                document.getElementById('customReason').required = false;
+            }
+        });
+
+        // Cancel Order Form Submit
+        document.getElementById('cancelOrderForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const orderId = document.getElementById('cancelOrderId').value;
+            const reasonSelect = document.getElementById('cancelReason');
+            const customReason = document.getElementById('customReason').value;
+
+            let reason = reasonSelect.value;
+            if (reason === 'Other' && customReason.trim()) {
+                reason = 'Other: ' + customReason.trim();
+            }
+
+            if (!reason || reason === '') {
+                showToast('Please select or specify a reason for cancellation', 'error');
+                return;
+            }
+
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Cancelling...';
+
+            fetch(contextPath + 'staff/orders/' + orderId + '/cancel?reason=' + encodeURIComponent(reason), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.json().then(data => {
+                            throw new Error(data.message || 'Cancellation failed');
+                        });
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        // Update badge in the table
+                        const row = document.getElementById('order-row-' + orderId);
+                        if (row) {
+                            const badge = row.querySelector('.order-status-badge');
+                            badge.className = 'badge order-status-badge danger';
+                            badge.textContent = data.newStatus; // Will be 'CANCELLED'
+
+                            // Remove action buttons and show "No actions"
+                            const actionsCell = row.querySelector('.action-btns');
+                            actionsCell.innerHTML = '<span class="text-muted" style="font-size: 0.85rem;">No actions</span>';
+
+                            // Highlight effect
+                            row.style.backgroundColor = '#fee2e2';
+                            row.style.transition = 'background-color 0.5s';
+                            setTimeout(() => row.style.backgroundColor = '', 1500);
+                        }
+
+                        closeCancelOrderModal();
+                        showToast(data.message || 'Order cancelled successfully! Customer has been notified.', 'success');
+                    } else {
+                        throw new Error(data.message || 'Cancellation failed');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error:', err);
+                    showToast(err.message || 'Failed to cancel order', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalText;
+                });
+        });
+
+        // --- 6. BLOG MANAGEMENT ---
+
+        // Auto Generate Slug from Title
+        document.getElementById('blogTitle')?.addEventListener('input', function(e) {
+            const slugInput = document.getElementById('blogSlug');
+            if (!slugInput.value || slugInput.dataset.autoGenerated === 'true') {
+                const slug = e.target.value.toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/^-+|-+$/g, '');
+                slugInput.value = slug;
+                slugInput.dataset.autoGenerated = 'true';
+            }
+        });
+
+        // Open Add Blog Modal
+        document.getElementById('addBlogBtn')?.addEventListener('click', function() {
+            document.getElementById('blogModalTitle').textContent = 'Create New Blog';
+            document.getElementById('blogForm').reset();
+            document.getElementById('blogId').value = '';
+            document.getElementById('blogSlug').dataset.autoGenerated = 'true';
+            toggleModal('blogModal', true);
+        });
+
+        // Close Blog Modal
+        window.closeBlogModal = function() {
+            toggleModal('blogModal', false);
+        };
+
+        // Edit Blog: Fetch Data
+        window.editBlog = function(id) {
+            fetch(contextPath + 'staff/blog/' + id, { headers: { 'Accept': 'application/json' } })
+                .then(r => {
+                    if (!r.ok) throw new Error('Blog not found');
+                    return r.json();
+                })
+                .then(blog => {
+                    document.getElementById('blogModalTitle').textContent = 'Edit Blog';
+                    document.getElementById('blogId').value = blog.id;
+                    document.getElementById('blogTitle').value = blog.title || '';
+                    document.getElementById('blogExcerpt').value = blog.excerpt || '';
+                    document.getElementById('blogContent').value = blog.content || '';
+                    document.getElementById('blogCategory').value = blog.category || '';
+                    document.getElementById('blogReadTime').value = blog.readTime || '';
+                    document.getElementById('blogImageUrl').value = blog.imageUrl || '';
+                    document.getElementById('blogAuthor').value = blog.author || '';
+                    document.getElementById('blogTags').value = blog.tags || '';
+                    document.getElementById('blogMetaDescription').value = blog.metaDescription || '';
+                    document.getElementById('blogSlug').value = blog.slug || '';
+                    document.getElementById('blogSlug').dataset.autoGenerated = 'false';
+                    document.getElementById('blogIsFeatured').checked = blog.isFeatured || false;
+                    toggleModal('blogModal', true);
+                })
+                .catch(err => showToast(err.message, 'error'));
+        };
+
+        // Save Blog Function (AJAX)
+        async function handleSaveBlog(e) {
+            e.preventDefault();
+
+            const form = document.getElementById('blogForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            // Handle checkbox
+            data.isFeatured = document.getElementById('blogIsFeatured').checked;
+
+            const isNew = !data.id;
+            if (!data.id) data.id = null;
+
+            const btn = form.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+
+            try {
+                const res = await fetch(contextPath + 'staff/blog/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    showToast(data.message || (isNew ? 'Blog created successfully!' : 'Blog updated successfully!'), 'success');
+                    closeBlogModal();
+
+                    // Giữ nguyên tab hiện tại, chỉ reload trang
+                    setTimeout(() => location.reload(), 800);
+                } else {
+                    const text = await res.text();
+                    showToast(text || 'Error saving blog', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('System error occurred', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        }
+
+        // Submit Blog for Review (AJAX)
+        function submitBlogForReview(id, btn) {
+            if (!confirm('Submit blog for review?')) return;
+
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+
+            fetch(contextPath + 'staff/blog/submit/' + id, { method: 'POST' })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.text().then(text => Promise.reject(new Error(text)));
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    showToast(data.message || 'Blog submitted for review successfully!', 'success');
+                    // Giữ nguyên tab hiện tại, chỉ reload trang
+                    setTimeout(() => location.reload(), 800);
+                })
+                .catch(err => {
+                    showToast(err.message || 'Failed to submit blog', 'error');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                });
+        }
+
+        // Request Delete Blog PUBLISHED (AJAX) - Gửi yêu cầu xóa đến admin
+        function requestDeleteBlog(id, btn) {
+            if (!confirm('Bạn có chắc muốn yêu cầu xóa bài viết này? Yêu cầu sẽ được gửi đến admin để duyệt.')) return;
+
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Requesting...';
+
+            fetch(contextPath + 'staff/blog/request-delete/' + id, { method: 'POST' })
+                .then(res => {
+                    if (!res.ok) {
+                        return res.text().then(text => Promise.reject(new Error(text)));
+                    }
+                    return res.json();
+                })
+                .then(data => {
+                    showToast(data.message || 'Yêu cầu xóa blog đã được gửi đến admin!', 'success');
+                    // Giữ nguyên tab hiện tại, chỉ reload trang
+                    setTimeout(() => location.reload(), 800);
+                })
+                .catch(err => {
+                    showToast(err.message || 'Failed to request delete blog', 'error');
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                });
+        }
+
+        // --- 7. GLOBAL EVENT DELEGATION (Cleaner way) ---
+        document.addEventListener('click', function (e) {
+            // ... other handlers ...
+
+            // Order Update to Paid - THIS MUST BE PRESENT
+            if (e.target.closest('.update-to-paid-btn')) {
+                e.preventDefault();
+                const btn = e.target.closest('.update-to-paid-btn');
+                updateOrderToPaid(btn);
+            }
+
+            // Order Cancel
+            if (e.target.closest('.cancel-order-btn')) {
+                e.preventDefault();
+                const btn = e.target.closest('.cancel-order-btn');
+                const orderId = btn.dataset.id;
+                const orderCode = btn.dataset.code;
+                const customerEmail = btn.dataset.email || '';
+                openCancelOrderModal(orderId, orderCode, customerEmail);
+            }
+        });
+
+        // Check for login success on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('loginSuccess') === 'true') {
+                setTimeout(() => {
+                    showToast('Welcome Back, Staff! 🎉 You have successfully logged in.', 'success');
+                }, 300);
+                
+                // Remove param from URL after showing toast
+                setTimeout(() => {
+                    const url = new URL(window.location);
+                    url.searchParams.delete('loginSuccess');
+                    window.history.replaceState({}, '', url);
+                }, 4500);
+            }
+        });
+    </script>
+
+</body>
+
+</html>

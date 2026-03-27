@@ -31,13 +31,35 @@
     .form-group { margin-bottom:20px; }
     .input-wrapper { position:relative; }
     .input-wrapper i { position:absolute; left:15px; top:50%; transform:translateY(-50%); color:#9ca3af; }
-    input, textarea { width:100%; padding:14px 15px 14px 45px; border:2px solid #e5e7eb; border-radius:12px; font-size:15px; }
+    input[type="text"], input[type="tel"], textarea { width:100%; padding:14px 15px 14px 45px; border:2px solid #e5e7eb; border-radius:12px; font-size:15px; font-family:inherit; }
     input:focus, textarea:focus { outline:none; border-color:#dc2626; }
+    input.error, textarea.error { border-color:#dc2626; }
     textarea { resize:vertical; min-height:100px; }
-    .btn-submit { width:100%; padding:15px; background:#dc2626; color:white; border:none; border-radius:12px; font-weight:600; cursor:pointer; transition:all 0.3s; }
+    .btn-submit { width:100%; padding:15px; background:#dc2626; color:white; border:none; border-radius:12px; font-weight:600; cursor:pointer; transition:all 0.3s; font-size:16px; }
     .btn-submit:hover { background:#b91c1c; transform:translateY(-1px); }
+    .btn-submit:disabled { background:#9ca3af; cursor:not-allowed; transform:none; }
+    .form-group label { display:block; margin-bottom:8px; font-weight:600; color:#374151; }
     .field-error { color:#dc2626; font-size:13px; margin-top:5px; display:block; }
     .avatar-preview { width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid #e5e7eb; }
+    .avatar-section {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .avatar-large {
+      width: 22%;
+      aspect-ratio: 1 / 1; /* Keeps it a perfect square */
+      border-radius: 50%;
+      object-fit: cover;
+      border: 4px solid #e5e7eb;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+
+    .avatar-large:hover {
+      transform: scale(1.05);
+    }
+
   </style>
 </head>
 
@@ -52,76 +74,290 @@
   <div class="form-container">
 
     <div class="form-header">
-      <h2>Complete Your Profile</h2>
-      <p>Help us personalize your experience</p>
+      <h2 th:text="${isEdit != null and isEdit ? 'Edit Your Profile' : 'Complete Your Profile'}">
+        Complete Your Profile
+      </h2>
+      <p th:text="${isEdit != null and isEdit ? 'Update your personal information' : 'Help us personalize your experience'}">
+        Help us personalize your experience
+      </p>
     </div>
 
-    <!-- FORM -->
-    <form th:action="@{/profile/setup}" th:object="${userForm}" method="post">
+    <!-- SUCCESS / ERROR MESSAGES -->
+    <div class="message success" th:if="${param.success}" style="display:block">
+      Profile saved successfully!
+    </div>
+    <div class="message error" th:if="${errorMessage}" style="display:block">
+      <span th:text="${errorMessage}">Error</span>
+    </div>
 
-      <!-- 1. VALIDATION ERRORS (from @Valid) -->
+    <!-- FIXED: Use BindingResult instead of #fields -->
+    <div class="message error" th:if="${result?.hasErrors()}" style="display:block">
+      Please fix the errors below.
+    </div>
+
+    <!-- FORM - USES THYMELEAF @{} to handle context path automatically -->
+    <form th:action="${currentPath}"
+          th:object="${userForm}"
+          method="post"
+          enctype="multipart/form-data"
+          id="profileForm"
+          novalidate>
+
+      <!-- SUCCESS MESSAGE -->
+      <div class="message success" th:if="${param.success}" style="display:block">
+        Profile saved successfully!
+      </div>
+
+      <!-- GENERAL ERROR -->
+      <div class="message error" th:if="${errorMessage}" style="display:block">
+        <span th:text="${errorMessage}">Error</span>
+      </div>
+
+      <!-- VALIDATION ERRORS -->
       <div class="message error" th:if="${#fields.hasErrors('*')}" style="display:block">
         Please fix the errors below.
       </div>
 
-      <!-- 2. SERVER ERRORS (from controller) -->
-      <div class="message error" th:if="${errorMessage != null}" style="display:block">
-        <span th:text="${errorMessage}">Error</span>
-      </div>
+      <!-- ==== AVATAR SECTION (TOP) ==== -->
+      <div class="avatar-section">
+        <!-- Current avatar (large) -->
+        <img th:if="${currentAvatarUrl != null && !#strings.isEmpty(currentAvatarUrl)}"
+             th:src="@{/{url}(url=${currentAvatarUrl})}"
+             alt="Current Avatar"
+             class="avatar-large"
+             onerror="this.src='@{/images/default_avatar.png}'" />
 
-      <!-- Avatar -->
-      <div style="text-align:center; margin-bottom:25px;">
-        <img th:if="${userForm != null && userForm.avatarUrl != null}"
-             th:src="${userForm.avatarUrl}"
-             alt="Avatar"
-             class="avatar-preview" />
+        <!-- Default avatar when none -->
+        <img th:unless="${currentAvatarUrl != null && !#strings.isEmpty(currentAvatarUrl)}"
+             th:src="@{/images/default_avatar.png}"
+             alt="Default Avatar"
+             class="avatar-large" />
 
-        <img th:unless="${userForm != null && userForm.avatarUrl != null}"
-             src="https://via.placeholder.com/80"
-             alt="Avatar"
-             class="avatar-preview" />
-      </div>
-
-      <!-- Email (Read-only) -->
-      <div class="form-group">
-        <label>Email</label>
-        <div class="input-wrapper">
-          <i class="fas fa-envelope"></i>
-          <input type="email" th:value="${#authentication.principal.attributes['email']}" readonly style="background:#f9fafb; color:#6b7280;" />
+        <!-- File input (under the picture) -->
+        <div class="form-group" style="margin-top:15px;">
+          <label>Profile Picture <small class="text-muted">(optional – .jpg, .png, .svg)</small></label>
+          <input type="file" name="avatar" id="avatar" accept=".jpg,.jpeg,.png,.svg" style="padding:10px; border:2px dashed #e5e7eb; border-radius:8px; width:100%; cursor:pointer;" />
+          <span class="field-error" id="avatarError"></span>
         </div>
+      </div>
+
+      <!-- Full Name -->
+      <div class="form-group">
+        <label>Full Name <span style="color:#dc2626;">*</span></label>
+        <div class="input-wrapper">
+          <i class="fas fa-user"></i>
+          <input type="text" 
+                 th:field="*{fullName}" 
+                 id="fullName"
+                 placeholder="Enter your full name"
+                 required
+                 minlength="2"
+                 maxlength="100" />
+        </div>
+        <span class="field-error" th:if="${#fields.hasErrors('fullName')}" th:errors="*{fullName}"></span>
+        <span class="field-error" id="fullNameError"></span>
       </div>
 
       <!-- Phone -->
       <div class="form-group">
-        <label>Phone Number</label>
+        <label>Phone Number <span style="color:#dc2626;">*</span></label>
         <div class="input-wrapper">
           <i class="fas fa-phone"></i>
-          <input type="tel" th:field="*{phone}" placeholder="e.g. +84 123 456 789" />
+          <input type="tel" 
+                 th:field="*{phone}" 
+                 id="phone"
+                 placeholder="e.g. 0123456789 or 0912345678"
+                 pattern="^(0[3|5|7|8|9][0-9]{8}|\+84[3|5|7|8|9][0-9]{8}|[3|5|7|8|9][0-9]{8})$" />
         </div>
-        <span th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}" class="field-error"></span>
+        <span class="field-error" th:if="${#fields.hasErrors('phone')}" th:errors="*{phone}"></span>
+        <span class="field-error" id="phoneError"></span>
       </div>
 
       <!-- Address -->
       <div class="form-group">
-        <label>Default Address</label>
+        <label>Default Address <span style="color:#dc2626;">*</span></label>
         <div class="input-wrapper">
           <i class="fas fa-map-marker-alt"></i>
-          <textarea th:field="*{defaultAddress}" placeholder="Enter your shipping address" rows="3"></textarea>
+          <textarea th:field="*{defaultAddress}" 
+                    id="defaultAddress"
+                    placeholder="Enter your address"
+                    rows="3"
+                    required
+                    minlength="10"
+                    maxlength="500"></textarea>
         </div>
-        <span th:if="${#fields.hasErrors('defaultAddress')}" th:errors="*{defaultAddress}" class="field-error"></span>
+        <span class="field-error" th:if="${#fields.hasErrors('defaultAddress')}" th:errors="*{defaultAddress}"></span>
+        <span class="field-error" id="defaultAddressError"></span>
       </div>
 
-      <button type="submit" class="btn-submit">Save & Continue</button>
+      <button type="submit" class="btn-submit" id="submitBtn">
+        <span th:text="${isEdit != null and isEdit ? 'Save Changes' : 'Save & Continue'}">Save & Continue</span>
+      </button>
     </form>
 
     <p style="text-align:center; margin-top:20px; font-size:14px; color:#6b7280;">
-      You can update this anytime in your profile.
+      You can update this information anytime.
     </p>
   </div>
 </div>
 
 <!-- FOOTER -->
 <div th:replace="~{footer :: footer}"></div>
+
+<script>
+  // Client-side validation
+  const form = document.getElementById('profileForm');
+  const fullNameInput = document.getElementById('fullName');
+  const phoneInput = document.getElementById('phone');
+  const addressInput = document.getElementById('defaultAddress');
+  const avatarInput = document.getElementById('avatar');
+  const submitBtn = document.getElementById('submitBtn');
+
+  // Phone validation pattern (Vietnamese phone numbers)
+  const phonePattern = /^(0[3|5|7|8|9][0-9]{8}|\+84[3|5|7|8|9][0-9]{8}|[3|5|7|8|9][0-9]{8})$/;
+
+  function showError(input, errorElement, message) {
+    input.classList.add('error');
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+  }
+
+  function clearError(input, errorElement) {
+    input.classList.remove('error');
+    errorElement.textContent = '';
+    errorElement.style.display = 'none';
+  }
+
+  function validateFullName() {
+    const value = fullNameInput.value.trim();
+    const errorElement = document.getElementById('fullNameError');
+    
+    if (!value) {
+      showError(fullNameInput, errorElement, 'Full name is required');
+      return false;
+    }
+    
+    if (value.length < 2) {
+      showError(fullNameInput, errorElement, 'Full name must be at least 2 characters');
+      return false;
+    }
+    
+    if (value.length > 100) {
+      showError(fullNameInput, errorElement, 'Full name must not exceed 100 characters');
+      return false;
+    }
+    
+    clearError(fullNameInput, errorElement);
+    return true;
+  }
+
+  function validatePhone() {
+    const value = phoneInput.value.trim();
+    const errorElement = document.getElementById('phoneError');
+    
+    if (!value) {
+      showError(phoneInput, errorElement, 'Phone number is required');
+      return false;
+    }
+    
+    if (!phonePattern.test(value)) {
+      showError(phoneInput, errorElement, 'Invalid phone number. Please enter a valid Vietnamese phone number (10-11 digits)');
+      return false;
+    }
+    
+    clearError(phoneInput, errorElement);
+    return true;
+  }
+
+  function validateAddress() {
+    const value = addressInput.value.trim();
+    const errorElement = document.getElementById('defaultAddressError');
+    
+    if (!value) {
+      showError(addressInput, errorElement, 'Address is required');
+      return false;
+    }
+    
+    if (value.length < 10) {
+      showError(addressInput, errorElement, 'Address must be at least 10 characters');
+      return false;
+    }
+    
+    if (value.length > 500) {
+      showError(addressInput, errorElement, 'Address must not exceed 500 characters');
+      return false;
+    }
+    
+    clearError(addressInput, errorElement);
+    return true;
+  }
+
+  function validateAvatar() {
+    const file = avatarInput.files[0];
+    const errorElement = document.getElementById('avatarError');
+    
+    if (file) {
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      
+      if (!validTypes.includes(file.type)) {
+        showError(avatarInput, errorElement, 'Only image files are allowed (.jpg, .png, .svg)');
+        return false;
+      }
+      
+      if (file.size > maxSize) {
+        showError(avatarInput, errorElement, 'File size must not exceed 5MB');
+        return false;
+      }
+    }
+    
+    clearError(avatarInput, errorElement);
+    return true;
+  }
+
+  // Real-time validation
+  fullNameInput.addEventListener('blur', validateFullName);
+  fullNameInput.addEventListener('input', function() {
+    if (fullNameInput.classList.contains('error')) {
+      validateFullName();
+    }
+  });
+
+  phoneInput.addEventListener('blur', validatePhone);
+  phoneInput.addEventListener('input', function() {
+    if (phoneInput.classList.contains('error')) {
+      validatePhone();
+    }
+  });
+
+  addressInput.addEventListener('blur', validateAddress);
+  addressInput.addEventListener('input', function() {
+    if (addressInput.classList.contains('error')) {
+      validateAddress();
+    }
+  });
+
+  avatarInput.addEventListener('change', validateAvatar);
+
+  // Form submission
+  form.addEventListener('submit', function(e) {
+    let isValid = true;
+    
+    if (!validateFullName()) isValid = false;
+    if (!validatePhone()) isValid = false;
+    if (!validateAddress()) isValid = false;
+    if (!validateAvatar()) isValid = false;
+    
+    if (!isValid) {
+      e.preventDefault();
+      submitBtn.disabled = false;
+      return false;
+    }
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+  });
+</script>
 
 </body>
 </html>
